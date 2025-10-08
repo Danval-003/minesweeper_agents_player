@@ -1,0 +1,3 @@
+.venv/*
+# Py cache
+*__pycache__*
