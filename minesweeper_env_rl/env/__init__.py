@@ -21,9 +21,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Tuple
 
-import jax
-import jax.numpy as jnp
-from jax import lax
+try:
+    import jax
+    import jax.numpy as jnp
+    from jax import lax
+except ModuleNotFoundError as exc:  # pragma: no cover - import guard
+    raise ModuleNotFoundError(
+        "minesweeper-env-rl depende de JAX. Instalalo con 'pip install jax[cpu]' "
+        "o seguí las instrucciones de JAX para CUDA/WSL2 antes de importar este paquete."
+    ) from exc
 
 from jax.tree_util import register_pytree_node
 

@@ -255,6 +255,14 @@ streamlit run app_streamlit.py
 
 ---
 
+## Nombre del paquete e import
+
+- El nombre publicado en PyPI es `minesweeper-env-rl`, por lo que debes instalarlo con `pip install minesweeper-env-rl`.
+- Para importarlo en Python usá guiones bajos: `from minesweeper_env_rl import MinesweeperJAX`.
+- Si tenés código heredado que todavía usa `from RL_enviroment import ...`, considerá actualizarlo a `minesweeper_env_rl` para evitar confusiones.
+
+---
+
 ## Automatización de releases a PyPI
 
 - El workflow `.github/workflows/publish.yml` publica `minesweeper-env-rl` en PyPI cada vez que hay push a `main` (o cuando se ejecuta manualmente vía `workflow_dispatch`). Antes de construir los artefactos corre `python minesweeper_env_rl/stress_bench.py --H 8 --W 8 --T 16 --mode scan --policy first_valid --batches 64,128` para comparar el rendimiento entre versiones.
