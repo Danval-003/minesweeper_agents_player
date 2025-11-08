@@ -10,7 +10,7 @@ Minesweeper RL env (JAX, GPU-ready, batched, jit/vmap friendly)
 Requisitos: jax>=0.4, jaxlib con CUDA si vas a GPU.
 
 API principal:
-    env = MinesweeperJAX(H=16, W=16, mine_prob=0.15625, dtype=jnp.float32)
+    env = MinesweeperJAX(H=16, W=16, n_mines=40, dtype=jnp.float32)
     state = env.reset(key, batch_size=1024)  # GPU
     obs = env.observe(state)
     mask = env.action_mask(state)
@@ -71,13 +71,19 @@ class MinesState:
 
 
 class MinesweeperJAX:
-    def __init__(self, H: int = 16, W: int = 16, mine_prob: float = 0.15625,
+    def __init__(self, H: int = 16, W: int = 16, n_mines: int = 40,
                  dtype=jnp.float32, reward_safe: float = 0.1, reward_boom: float = -1.0,
                  reward_win: float = 1.0,
                  context_radius: int = 0):
         self.H, self.W = H, W
         self.N = H * W
-        self.mine_prob = mine_prob
+        # número de minas en el tablero
+        self.n_mines = int(n_mines)
+        if self.n_mines < 0:
+            self.n_mines = 0
+        if self.n_mines > self.N:
+            self.n_mines = self.N
+
         self.dtype = dtype
         self.reward_safe = dtype(reward_safe)
         self.reward_boom = dtype(reward_boom)
@@ -86,16 +92,22 @@ class MinesweeperJAX:
 
     # ----------------------------- Reset ---------------------------------
     def _place_mines(self, key: Array, B: int) -> Tuple[Array, Array]:
-        """Bernoulli por celda. Devuelve (key, mines[Bool])."""
+        """Coloca exactamente `n_mines` minas por tablero. Devuelve (key, mines[Bool])."""
         key, sub = jax.random.split(key)
-        mines = jax.random.bernoulli(sub, p=self.mine_prob, shape=(B, self.H, self.W))
-        # Evitar tablero vacío o lleno (opcional):
-        def _fix(m):
-            total = m.sum()
-            m = lax.cond(total == 0, lambda _: m.at[0, 0].set(True), lambda _: m, None)
-            m = lax.cond(total == (self.H * self.W), lambda _: m.at[0, 0].set(False), lambda _: m, None)
-            return m
-        mines = jax.vmap(_fix)(mines)
+        N = self.H * self.W
+        n_m = self.n_mines
+
+        # una clave por tablero
+        keys = jax.random.split(sub, B)
+
+        def _sample_one(k):
+            perm = jax.random.permutation(k, N)
+            idx = perm[:n_m]
+            m_flat = jnp.zeros((N,), dtype=bool)
+            m_flat = m_flat.at[idx].set(True)
+            return m_flat.reshape(self.H, self.W)
+
+        mines = jax.vmap(_sample_one)(keys)
         return key, mines
 
     def _compute_numbers(self, mines: Array) -> Array:
@@ -407,15 +419,70 @@ def view_episode(env: MinesweeperJAX, state: MinesState, steps: int = 50, policy
     _plt.ioff()
     _plt.show()
 
+
+def only_mines_left(state: MinesState, i: int = 0) -> bool:
+    """
+    Devuelve True si en el tablero i todas las celdas sin mina ya están reveladas,
+    es decir, solo quedan minas sin revelar (condición de victoria).
+    """
+    mines    = _np.asarray(jax.device_get(state.mines[i]))
+    revealed = _np.asarray(jax.device_get(state.revealed[i]))
+    remaining_non_mine_unrevealed = ((~mines) & (~revealed)).sum()
+    return bool(remaining_non_mine_unrevealed == 0)
+
+
+def pick_safe_action_first_click(state: MinesState, i: int = 0, rng: _np.random.Generator | None = None) -> int:
+    """
+    Devuelve un índice de acción (0..H*W-1) que garantice NO caer en mina
+    para el tablero i, usando la información interna del estado.
+
+    Útil para el primer movimiento. No es obligatorio usarla.
+    Si no queda ninguna celda segura, cae en cualquier acción válida (no revelada y sin bandera).
+    Si tampoco hay válidas, devuelve 0.
+    """
+    mines    = _np.asarray(jax.device_get(state.mines[i]))
+    revealed = _np.asarray(jax.device_get(state.revealed[i]))
+    flagged  = _np.asarray(jax.device_get(state.flagged[i]))
+    H, W = revealed.shape
+
+    if rng is None:
+        rng = _np.random.default_rng()
+
+    safe_mask = (~mines) & (~revealed) & (~flagged)
+    flat_safe = safe_mask.reshape(-1)
+    safe_indices = _np.flatnonzero(flat_safe)
+
+    if safe_indices.size > 0:
+        return int(rng.choice(safe_indices))
+
+    # fallback: cualquier acción válida (puede ser mina)
+    valid_mask = (~revealed) & (~flagged)
+    flat_valid = valid_mask.reshape(-1)
+    valid_indices = _np.flatnonzero(flat_valid)
+    if valid_indices.size > 0:
+        return int(rng.choice(valid_indices))
+
+    return 0
+
+
 register_pytree_node(MinesState, _ms_flatten, _ms_unflatten)
 
 
-__all__ = ["MinesweeperJAX", "MinesState", "build_jit_env", "render_rgb", "show_once", "view_episode"]
+__all__ = [
+    "MinesweeperJAX",
+    "MinesState",
+    "build_jit_env",
+    "render_rgb",
+    "show_once",
+    "view_episode",
+    "only_mines_left",
+    "pick_safe_action_first_click",
+]
 
 # --------------------------------- Demo ---------------------------------------
 if __name__ == "__main__":
     key = jax.random.PRNGKey(0)
-    env = MinesweeperJAX(H=16, W=16, mine_prob=0.15625, context_radius=1)
+    env = MinesweeperJAX(H=16, W=16, n_mines=40, context_radius=1)
     reset_jit, observe_jit, mask_jit, step_jit = build_jit_env(env)
 
     B = 2048  # subí esto si tenés GPU

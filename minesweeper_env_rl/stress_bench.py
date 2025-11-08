@@ -133,7 +133,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--H", type=int, default=16)
     parser.add_argument("--W", type=int, default=16)
-    parser.add_argument("--mine_prob", type=float, default=0.15625)
+    parser.add_argument("--n_mines", type=int, default=40)   # número de minas en el tablero
     parser.add_argument("--R", type=int, default=1)          # context_radius
     parser.add_argument("--T", type=int, default=128)        # pasos por benchmark
     parser.add_argument("--mode", choices=["scan", "unrolled"], default="scan")
@@ -142,7 +142,7 @@ def main():
     args = parser.parse_args()
 
     print(f"Device(s): {[d.platform + ':' + d.device_kind for d in jax.devices()]}")
-    env = MinesweeperJAX(H=args.H, W=args.W, mine_prob=args.mine_prob, context_radius=args.R)
+    env = MinesweeperJAX(H=args.H, W=args.W, n_mines=args.n_mines, context_radius=args.R)
 
     batch_list = [int(x) for x in args.batches.split(",") if x.strip()]
     print(f"Running: H={args.H} W={args.W} R={args.R} T={args.T} mode={args.mode} policy={args.policy}")

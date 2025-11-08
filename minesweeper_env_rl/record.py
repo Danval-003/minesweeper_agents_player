@@ -217,7 +217,7 @@ def record_episode_video(env: MinesweeperJAX,
 # --------------------------------- Main ---------------------------------
 if __name__ == "__main__":
     key = jax.random.PRNGKey(42)
-    env = MinesweeperJAX(H=16, W=16, mine_prob=0.15625, context_radius=1)
+    env = MinesweeperJAX(H=16, W=16, n_mines=40, context_radius=1)
     # Para video, reset sin jit (suficiente y más flexible)
     state = env.reset(key, batch_size=1)
 

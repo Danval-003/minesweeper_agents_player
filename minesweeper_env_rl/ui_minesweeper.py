@@ -2,6 +2,7 @@
 # Interfaz interactiva para el entorno MinesweeperJAX:
 # - Click sobre el tablero para jugar de forma manual.
 # - Botones para "paso del agente" (first_valid / random).
+# - Botón opcional para "primer click seguro (no mina)".
 # - Panel "lo que ve el agente": radio R, ventana local (2R+1)x(2R+1),
 #   y mapas de resumen (conteo de no-reveladas, banderas) calculados por env.observe.
 # Requiere: streamlit, streamlit-image-coordinates, pillow, imageio, jax, jaxlib.
@@ -17,7 +18,7 @@ import jax
 import jax.numpy as jnp
 
 # Importa tu entorno
-from env import MinesweeperJAX, MinesState
+from env import MinesweeperJAX, MinesState, pick_safe_action_first_click
 
 # ------------------------------ Paleta / estilos ------------------------------
 _MS_BG_HIDDEN   = (50, 50, 50)
@@ -203,7 +204,16 @@ st.set_page_config(page_title="Minesweeper JAX – Interactivo", layout="wide")
 st.sidebar.title("Config")
 H = st.sidebar.number_input("Altura H", min_value=4, max_value=64, value=16, step=1)
 W = st.sidebar.number_input("Ancho W",  min_value=4, max_value=64, value=16, step=1)
-mine_prob = st.sidebar.slider("Prob. mina", min_value=0.05, max_value=0.4, value=0.15625, step=0.01)
+# número de minas en lugar de probabilidad
+max_mines = int(H * W - 1)
+default_mines = min(40, max_mines) if max_mines > 0 else 1
+n_mines = st.sidebar.number_input(
+    "Número de minas",
+    min_value=1,
+    max_value=max_mines if max_mines > 0 else 1,
+    value=default_mines,
+    step=1,
+)
 R = st.sidebar.slider("Context radius R", min_value=0, max_value=4, value=1, step=1)
 cell_px = st.sidebar.slider("Tamaño celda (px)", min_value=20, max_value=48, value=28, step=2)
 show_valid = st.sidebar.checkbox("Mostrar acciones válidas (overlay verde)", value=False)
@@ -213,15 +223,15 @@ btn_reset = st.sidebar.button("Resetear entorno")
 # Estado
 if "env" not in st.session_state or btn_reset or \
    st.session_state.get("H") != H or st.session_state.get("W") != W or \
-   st.session_state.get("mine_prob") != mine_prob or \
+   st.session_state.get("n_mines") != n_mines or \
    st.session_state.get("R") != R:
     key = jax.random.PRNGKey(0)
-    env = MinesweeperJAX(H=int(H), W=int(W), mine_prob=float(mine_prob), context_radius=int(R))
+    env = MinesweeperJAX(H=int(H), W=int(W), n_mines=int(n_mines), context_radius=int(R))
     state = env.reset(key, batch_size=1)
     st.session_state.env = env
     st.session_state.state = state
     st.session_state.H, st.session_state.W = int(H), int(W)
-    st.session_state.mine_prob = float(mine_prob)
+    st.session_state.n_mines = int(n_mines)
     st.session_state.R = int(R)
     st.session_state.selected_rc = (H//2, W//2)  # selección por defecto
 else:
@@ -249,6 +259,19 @@ with c1:
                 a = np.array([pick], dtype=np.int32)
             state, r, d = env.step(state, jnp.asarray(a))
             st.session_state.state = state
+
+    # Botón para usar la función de "primer click seguro (no mina)"
+    if st.button("Primer click seguro (no mina)"):
+        # Solo tiene sentido si el episodio no terminó
+        done_flags = np.asarray(jax.device_get(state.done))
+        if not bool(done_flags[0]):
+            a_idx = pick_safe_action_first_click(state, i=0)
+            r_sel, c_sel = _index_to_rc(a_idx, env.W)
+            a = np.array([a_idx], dtype=np.int32)
+            state, rwd, done = env.step(state, jnp.asarray(a))
+            st.session_state.state = state
+            st.session_state.selected_rc = (r_sel, c_sel)
+            rr, cc = r_sel, c_sel
 
     # Render del tablero actual
     board_img = render_board_img(state, i=0, cell_px=cell_px,
