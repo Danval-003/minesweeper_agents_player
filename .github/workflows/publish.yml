@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "minesweeper_env_rl/**"
+      - "pyproject.toml"
       - "scripts/**"
       - ".github/workflows/publish.yml"
   workflow_dispatch:
@@ -34,7 +35,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('RL_enviroment/pyproject.toml', 'RL_enviroment/requirements.txt') }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('pyproject.toml', 'minesweeper_env_rl/requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
 
@@ -71,7 +72,7 @@ jobs:
           new_version=$(
             python scripts/bump_version.py \
               --release-type "${{ steps.release_type.outputs.release_type }}" \
-              --pyproject minesweeper_env_rl/pyproject.toml \
+              --pyproject pyproject.toml \
               --init-file minesweeper_env_rl/__init__.py
           )
           echo "version=$new_version" >> "$GITHUB_OUTPUT"
@@ -81,14 +82,13 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "chore: release minesweeper-env-rl ${{ steps.bump_version.outputs.version }} [skip ci]"
-          file_pattern: minesweeper_env_rl/pyproject.toml minesweeper_env_rl/__init__.py
+          file_pattern: pyproject.toml minesweeper_env_rl/__init__.py
 
       - name: Clean previous builds
-        run: rm -rf minesweeper_env_rl/dist
+        run: rm -rf dist
         shell: bash
 
       - name: Build wheel and sdist
-        working-directory: minesweeper_env_rl
         run: python -m build
 
       - name: Publish to PyPI
@@ -96,4 +96,4 @@ jobs:
         with:
           user: __token__
           password: ${{ secrets.PYPI_API_TOKEN }}
-          packages_dir: minesweeper_env_rl/dist
+          packages_dir: dist

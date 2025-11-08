@@ -63,7 +63,7 @@ def _update_file(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Bump minesweeper_env_rl package version.")
-    parser.add_argument("--pyproject", type=pathlib.Path, default=pathlib.Path("minesweeper_env_rl/pyproject.toml"))
+    parser.add_argument("--pyproject", type=pathlib.Path, default=pathlib.Path("pyproject.toml"))
     parser.add_argument("--init-file", type=pathlib.Path, default=pathlib.Path("minesweeper_env_rl/__init__.py"))
     parser.add_argument("--release-type", required=True, choices=("major", "minor", "patch"))
     args = parser.parse_args()
