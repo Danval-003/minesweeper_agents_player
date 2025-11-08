@@ -223,7 +223,7 @@ class MinesweeperJAX:
                 # Expandimos a 8-vecinos dentro de zeros y no abiertos
                 neigh = _conv2d_ones(frontier.astype(jnp.int32)) > 0
                 next_frontier = neigh & zeros & (~opened)
-                return (opened, next_frontier)
+                return (opened, next_frontrier)
 
             def cond(carry):
                 _, frontier = carry
@@ -262,6 +262,10 @@ class MinesweeperJAX:
         a_valid = jnp.take_along_axis(valid_mask, actions[:, None], axis=1).squeeze(1)
         a_valid = a_valid & (~s.done)
 
+        # --- Ajuste: detectar si es el PRIMER movimiento seguro del episodio ---
+        # is_first_move[b] = True si en ese tablero b no había ninguna celda revelada antes del paso.
+        is_first_move = ~s.revealed.any(axis=(1, 2))
+
         def do_nop(_):
             return s.revealed, jnp.zeros((B,), self.dtype)
 
@@ -273,6 +277,12 @@ class MinesweeperJAX:
             r = r + self.reward_boom * hit_mine.astype(self.dtype)
             win = self._win_condition(new_rev, s.mines)
             r = r + self.reward_win * win.astype(self.dtype)
+
+            # --- Ajuste: primer movimiento seguro tiene recompensa 0 ---
+            # Si es el primer movimiento (no había reveladas) y NO hubo mina,
+            # anulamos la recompensa (ni positiva ni de victoria).
+            r = jnp.where(is_first_move & (~hit_mine), jnp.zeros_like(r), r)
+
             return new_rev, r
 
         new_revealed, r_step = lax.cond(a_valid.any(), do_reveal, do_nop, operand=None)
@@ -437,8 +447,8 @@ def pick_safe_action_first_click(state: MinesState, i: int = 0, rng: _np.random.
     para el tablero i, usando la información interna del estado.
 
     Útil para el primer movimiento. No es obligatorio usarla.
-    Si no queda ninguna celda segura, cae en cualquier acción válida (no revelada y sin bandera).
-    Si tampoco hay válidas, devuelve 0.
+    Si no queda ninguna celda segura, detecta que ya no hay y cae en cualquier
+    acción válida (no revelada y sin bandera). Si tampoco hay válidas, devuelve 0.
     """
     mines    = _np.asarray(jax.device_get(state.mines[i]))
     revealed = _np.asarray(jax.device_get(state.revealed[i]))
