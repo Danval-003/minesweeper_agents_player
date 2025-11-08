@@ -1,5 +1,5 @@
 */__pycache__/
 venv/
-RL_enviroment/__pycache__/
-RL_enviroment/env/__pycache__/
-RL_enviroment/build/
+minesweeper_env_rl/__pycache__/
+minesweeper_env_rl/env/__pycache__/
+minesweeper_env_rl/build/

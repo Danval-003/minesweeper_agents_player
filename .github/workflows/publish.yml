@@ -1,0 +1,99 @@
+name: Publish minesweeper_env_rl
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "minesweeper_env_rl/**"
+      - "scripts/**"
+      - ".github/workflows/publish.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-test-publish:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    env:
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('RL_enviroment/pyproject.toml', 'RL_enviroment/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install build tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install build
+
+      - name: Install project dependencies
+        run: pip install -r minesweeper_env_rl/requirements.txt
+
+      - name: Run stress benchmark
+        run: python minesweeper_env_rl/stress_bench.py --H 8 --W 8 --T 16 --mode scan --policy first_valid --batches 64,128
+
+      - name: Decide release type
+        id: release_type
+        shell: bash
+        run: |
+          message="$(git log -1 --pretty=%B)"
+          lower="$(printf '%s' "$message" | tr '[:upper:]' '[:lower:]')"
+          release_type="minor"
+          if [[ "$lower" == *"[major]"* || "$lower" == *"#major"* || "$message" == *"BREAKING CHANGE"* || "$message" == *"!:"* ]]; then
+            release_type="major"
+          elif [[ "$lower" == *"[patch]"* || "$lower" == *"#patch"* || "$lower" == *"[fix]"* || "$lower" == *"#fix"* ]]; then
+            release_type="patch"
+          fi
+          echo "release_type=$release_type" >> "$GITHUB_OUTPUT"
+          printf 'Commit message: %s\nDetected release type: %s\n' "$message" "$release_type"
+
+      - name: Bump version
+        id: bump_version
+        shell: bash
+        run: |
+          new_version=$(
+            python scripts/bump_version.py \
+              --release-type "${{ steps.release_type.outputs.release_type }}" \
+              --pyproject minesweeper_env_rl/pyproject.toml \
+              --init-file minesweeper_env_rl/__init__.py
+          )
+          echo "version=$new_version" >> "$GITHUB_OUTPUT"
+          printf 'Bumped rl-enviroment to %s\n' "$new_version"
+
+      - name: Commit version bump
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: release minesweeper-env-rl ${{ steps.bump_version.outputs.version }} [skip ci]"
+          file_pattern: minesweeper_env_rl/pyproject.toml minesweeper_env_rl/__init__.py
+
+      - name: Clean previous builds
+        run: rm -rf minesweeper_env_rl/dist
+        shell: bash
+
+      - name: Build wheel and sdist
+        working-directory: minesweeper_env_rl
+        run: python -m build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          packages_dir: minesweeper_env_rl/dist

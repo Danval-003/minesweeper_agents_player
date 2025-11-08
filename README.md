@@ -24,7 +24,7 @@
 ## 📦 Estructura del repo
 
 ```
-RL_enviroment/
+minesweeper_env_rl/
 ├── env/
 │   └── __init__.py        # Ambiente JAX + wrappers jit + pytree
 ├── record.py              # Render a video (Pillow + imageio-ffmpeg)
@@ -51,8 +51,8 @@ RL_enviroment/
 
 ```bash
 cd ~/proyectos
-git clone <este-repo> RL_enviroment
-cd RL_enviroment
+git clone <este-repo> minesweeper_env_rl
+cd minesweeper_env_rl
 python3 -m venv .venv
 source .venv/bin/activate
 ```
@@ -252,3 +252,12 @@ streamlit run app_streamlit.py
 [9]: https://pypi.org/project/streamlit-image-coordinates/?utm_source=chatgpt.com "streamlit-image-coordinates"
 [10]: https://github.com/google/brax?utm_source=chatgpt.com "google/brax: Massively parallel rigidbody physics ..."
 [11]: https://github.com/google/jax/issues/10128?utm_source=chatgpt.com "jax.numpy.convolve outputs floats for integer inputs #10128"
+
+---
+
+## Automatización de releases a PyPI
+
+- El workflow `.github/workflows/publish.yml` publica `minesweeper-env-rl` en PyPI cada vez que hay push a `main` (o cuando se ejecuta manualmente vía `workflow_dispatch`). Antes de construir los artefactos corre `python minesweeper_env_rl/stress_bench.py --H 8 --W 8 --T 16 --mode scan --policy first_valid --batches 64,128` para comparar el rendimiento entre versiones.
+- El script `scripts/bump_version.py` actualiza `minesweeper_env_rl/pyproject.toml` y `minesweeper_env_rl/__init__.py`. Por defecto incrementa el `minor`, pero si el último mensaje de commit incluye `[major]`, `#major`, `BREAKING CHANGE` o `!:` sube el `major`; si incluye `[patch]`, `[fix]`, `#patch` o `#fix` sube únicamente el `patch`.
+- La acción `stefanzweifel/git-auto-commit-action` commitea el nuevo número de versión (`chore: release ... [skip ci]`) para que cada build quede registrado.
+- Para publicar necesitas un secreto de repo llamado `PYPI_API_TOKEN` con un *project token* de PyPI que tenga permisos de upload sobre `minesweeper-env-rl`.

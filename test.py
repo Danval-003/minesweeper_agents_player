@@ -1,4 +1,4 @@
-from RL_enviroment import MinesweeperJAX, build_jit_env
+from minesweeper_env_rl import MinesweeperJAX, build_jit_env
 import jax
 import jax.numpy as jnp
 

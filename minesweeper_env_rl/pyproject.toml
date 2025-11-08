@@ -3,7 +3,7 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "rl-enviroment"
+name = "minesweeper-env-rl"
 version = "0.1.0"
 description = "JAX Minesweeper environment for reinforcement learning agents."
 requires-python = ">=3.10"
@@ -64,4 +64,4 @@ dependencies = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["RL_enviroment*"]
+include = ["minesweeper_env_rl*"]
