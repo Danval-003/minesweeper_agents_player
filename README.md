@@ -259,7 +259,7 @@ streamlit run app_streamlit.py
 
 - El nombre publicado en PyPI es `minesweeper-env-rl`, por lo que debes instalarlo con `pip install minesweeper-env-rl`.
 - Para importarlo en Python usá guiones bajos: `from minesweeper_env_rl import MinesweeperJAX`.
-- Si tenés código heredado que todavía usa `from RL_enviroment import ...`, considerá actualizarlo a `minesweeper_env_rl` para evitar confusiones.
+- Por compatibilidad mantenemos un shim `RL_enviroment` que reexporta todo desde `minesweeper_env_rl`, pero ya muestra un `DeprecationWarning`; migrá tus imports cuando puedas.
 
 ---
 
