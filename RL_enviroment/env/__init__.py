@@ -403,6 +403,9 @@ def view_episode(env: MinesweeperJAX, state: MinesState, steps: int = 50, policy
 
 register_pytree_node(MinesState, _ms_flatten, _ms_unflatten)
 
+
+__all__ = ["MinesweeperJAX", "MinesState", "build_jit_env", "render_rgb", "show_once", "view_episode"]
+
 # --------------------------------- Demo ---------------------------------------
 if __name__ == "__main__":
     key = jax.random.PRNGKey(0)
