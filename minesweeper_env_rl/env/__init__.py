@@ -301,13 +301,13 @@ class MinesweeperJAX:
             # Supervivencia / rapidez: paso no terminal y sin mina
             survive = (~hit_mine) & (~win)
 
-            if self.reward_step != 0:
-                if self.prefer_survival:
-                    # Bonus por seguir vivo un paso más
-                    r = r + self.reward_step * survive.astype(self.dtype)
-                else:
-                    # Penalización por paso (se prefiere terminar rápido)
-                    r = r - self.reward_step * survive.astype(self.dtype)
+            # Siempre aplicamos el término de paso; si reward_step=0, no afecta.
+            if self.prefer_survival:
+                # Bonus por seguir vivo un paso más
+                r = r + self.reward_step * survive.astype(self.dtype)
+            else:
+                # Penalización por paso (se prefiere terminar rápido)
+                r = r - self.reward_step * survive.astype(self.dtype)
 
             # Primer movimiento seguro => recompensa 0 (anula todo lo anterior si no hubo mina)
             r = jnp.where(is_first_move & (~hit_mine), jnp.zeros_like(r), r)
