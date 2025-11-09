@@ -71,10 +71,29 @@ class MinesState:
 
 
 class MinesweeperJAX:
-    def __init__(self, H: int = 16, W: int = 16, n_mines: int = 40,
-                 dtype=jnp.float32, reward_safe: float = 0.1, reward_boom: float = -1.0,
+    def __init__(self,
+                 H: int = 16,
+                 W: int = 16,
+                 n_mines: int = 40,
+                 dtype=jnp.float32,
+                 reward_safe: float = 0.1,
+                 reward_boom: float = -1.0,
                  reward_win: float = 1.0,
+                 reward_step: float = 0.02,
+                 prefer_survival: bool = True,
                  context_radius: int = 0):
+        """
+        Parámetros de recompensa:
+          - reward_safe:   recompensa por cada celda segura nueva revelada.
+          - reward_boom:   castigo al pisar una mina.
+          - reward_win:    bonus al ganar (solo cuando se cumple condición de victoria).
+          - reward_step:   magnitud de recompensa por paso:
+                * si prefer_survival=True  -> se SUMA +reward_step en pasos no terminales sin mina
+                * si prefer_survival=False -> se RESTA  -reward_step en pasos no terminales sin mina
+          - prefer_survival:
+                True  -> valora más sobrevivir muchos turnos (episodios más largos y prudentes).
+                False -> valora terminar en menos pasos (costo por paso).
+        """
         self.H, self.W = H, W
         self.N = H * W
         # número de minas en el tablero
@@ -88,6 +107,8 @@ class MinesweeperJAX:
         self.reward_safe = dtype(reward_safe)
         self.reward_boom = dtype(reward_boom)
         self.reward_win = dtype(reward_win)
+        self.reward_step = dtype(reward_step)
+        self.prefer_survival = bool(prefer_survival)
         self.context_radius = int(context_radius)
 
     # ----------------------------- Reset ---------------------------------
@@ -223,7 +244,7 @@ class MinesweeperJAX:
                 # Expandimos a 8-vecinos dentro de zeros y no abiertos
                 neigh = _conv2d_ones(frontier.astype(jnp.int32)) > 0
                 next_frontier = neigh & zeros & (~opened)
-                return (opened, next_frontrier)
+                return (opened, next_frontier)
 
             def cond(carry):
                 _, frontier = carry
@@ -262,8 +283,7 @@ class MinesweeperJAX:
         a_valid = jnp.take_along_axis(valid_mask, actions[:, None], axis=1).squeeze(1)
         a_valid = a_valid & (~s.done)
 
-        # --- Ajuste: detectar si es el PRIMER movimiento seguro del episodio ---
-        # is_first_move[b] = True si en ese tablero b no había ninguna celda revelada antes del paso.
+        # Detectar si es el PRIMER movimiento del episodio (antes de este paso)
         is_first_move = ~s.revealed.any(axis=(1, 2))
 
         def do_nop(_):
@@ -271,16 +291,25 @@ class MinesweeperJAX:
 
         def do_reveal(_):
             new_rev, hit_mine = self._reveal_cells(s, actions)
-            # Recompensas: +r_safe * (#nuevas), -1 si mina, +win si gana
+            # Recompensas base: +r_safe * (#nuevas), -1 si mina, +win si gana
             newly = (new_rev & (~s.revealed) & (~s.mines)).sum(axis=(1, 2)).astype(self.dtype)
             r = newly * self.reward_safe
             r = r + self.reward_boom * hit_mine.astype(self.dtype)
             win = self._win_condition(new_rev, s.mines)
             r = r + self.reward_win * win.astype(self.dtype)
 
-            # --- Ajuste: primer movimiento seguro tiene recompensa 0 ---
-            # Si es el primer movimiento (no había reveladas) y NO hubo mina,
-            # anulamos la recompensa (ni positiva ni de victoria).
+            # Supervivencia / rapidez: paso no terminal y sin mina
+            survive = (~hit_mine) & (~win)
+
+            if self.reward_step != 0:
+                if self.prefer_survival:
+                    # Bonus por seguir vivo un paso más
+                    r = r + self.reward_step * survive.astype(self.dtype)
+                else:
+                    # Penalización por paso (se prefiere terminar rápido)
+                    r = r - self.reward_step * survive.astype(self.dtype)
+
+            # Primer movimiento seguro => recompensa 0 (anula todo lo anterior si no hubo mina)
             r = jnp.where(is_first_move & (~hit_mine), jnp.zeros_like(r), r)
 
             return new_rev, r
