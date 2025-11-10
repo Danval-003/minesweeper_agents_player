@@ -9,7 +9,7 @@ from PIL import Image, ImageDraw, ImageFont
 import os
 import base64
 from typing import Optional, Tuple, List
-from minesweeper_pomdp import MinesweeperPOMDP
+from .pomdp import MinesweeperPOMDP
 
 # Color scheme (Minesweeper classic style)
 MS_BG_HIDDEN = (50, 50, 50)
