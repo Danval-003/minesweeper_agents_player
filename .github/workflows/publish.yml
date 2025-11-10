@@ -48,15 +48,7 @@ jobs:
         run: pip install -r minesweeper_env_rl/requirements.txt
 
       - name: Run stress benchmark
-        run: python minesweeper_env_rl/stress_bench.py \
-          --H 8 \
-          --W 8 \
-          --n_mines 10 \
-          --R 2 \
-          --window_shape rhombus \
-          --T 16 \
-          --policy first_valid \
-          --batches 64,128
+        run: python minesweeper_env_rl/stress_bench.py --H 8 --W 8 --n_mines 10 --R 2 --window_shape rhombus --T 16 --policy first_valid --batches 64,128
 
       - name: Decide release type
         id: release_type
