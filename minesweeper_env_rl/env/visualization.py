@@ -464,13 +464,3 @@ if __name__ == "__main__":
     create_step_images(env, output_dir="/mnt/user-data/outputs/steps", cell_px=28)
     
     print("\n✓ Visualization complete!")
-
-__all__ = [
-    "render_board_img",
-    "render_window_img",
-    "combine_board_and_window",
-    "add_text_overlay",
-    "create_episode_gif",
-    "create_step_images",
-    "display_gif_inline",
-]

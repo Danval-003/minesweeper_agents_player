@@ -581,5 +581,3 @@ if __name__ == "__main__":
     summary = env.get_state_summary()
     for key, value in summary.items():
         print(f"{key}: {value}")
-
-__all__ = ["MinesweeperPOMDP", "CellState"]
