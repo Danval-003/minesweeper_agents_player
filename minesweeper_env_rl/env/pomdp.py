@@ -180,21 +180,26 @@ class MinesweeperPOMDP:
     
     def _calculate_numbers_vectorized(self) -> np.ndarray:
         """
-        Calculate adjacent mine counts using convolution for speed.
-        This is much faster than nested loops.
+        Calculate adjacent mine counts using only NumPy (no SciPy).
+        This is much faster than nested loops and avoids extra dependencies.
         """
-        from scipy.signal import convolve2d
-        
-        # Kernel for counting neighbors
-        kernel = np.ones((3, 3), dtype=np.int32)
-        kernel[1, 1] = 0
-        
-        # Convolve to count adjacent mines
-        numbers = convolve2d(self.mines.astype(np.int32), kernel, mode='same')
-        
-        # Set mine cells to -1 (optional, for clarity)
-        # numbers[self.mines] = -1
-        
+        m = self.mines.astype(np.int32)
+
+        # Pad with zeros around the board
+        p = np.pad(m, 1, mode="constant", constant_values=0)
+
+        # Sum the 8 neighbors
+        numbers = (
+            p[0:-2, 0:-2] +  # up-left
+            p[0:-2, 1:-1] +  # up
+            p[0:-2, 2:  ] +  # up-right
+            p[1:-1, 0:-2] +  # left
+            p[1:-1, 2:  ] +  # right
+            p[2:  , 0:-2] +  # down-left
+            p[2:  , 1:-1] +  # down
+            p[2:  , 2:  ]    # down-right
+        )
+
         return numbers.astype(np.int32)
     
     def _get_observation(self, cell: Optional[Tuple[int, int]] = None) -> Dict:

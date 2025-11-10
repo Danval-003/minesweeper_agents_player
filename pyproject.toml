@@ -65,4 +65,4 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["minesweeper_env_rl*", "RL_enviroment*"]
+include = ["minesweeper_env_rl*", "RL_environment*"]
